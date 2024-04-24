@@ -59,7 +59,7 @@ resource "aws_eks_cluster" "example" {
 
 # IAM Role for Node Group
 
-resource "aws_iam_role" "node_group" {
+resource "aws_iam_role" "node_groupx" {
   name = "eks-node-group-cloud"
 
   assume_role_policy = jsonencode({
