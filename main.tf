@@ -34,11 +34,8 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnets" "public" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
+data "aws_subnet_ids" "public" {
+  vpc_id = data.aws_vpc.default.id
 }
 
 # EKS Cluster Provisioning
@@ -48,24 +45,29 @@ resource "aws_eks_cluster" "example" {
   role_arn      = aws_iam_role.example.arn
 
   vpc_config {
-    subnet_ids = data.aws_subnets.public.ids
+    subnet_ids         = data.aws_subnet_ids.public.ids
+    security_group_ids = [aws_security_group.eks.id]
   }
 
   # Ensure IAM Role permissions are created before and deleted after EKS Cluster handling.
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
   ]
+
+  tags = {
+    Environment = "Production"
+  }
 }
 
 # IAM Role for Node Group
 
-resource "aws_iam_role" "node_groupx" {
+resource "aws_iam_role" "node_group" {
   name = "eks-node-group-cloud"
 
   assume_role_policy = jsonencode({
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
       Principal = {
         Service = "ec2.amazonaws.com"
       }
@@ -95,20 +97,6 @@ resource "aws_eks_node_group" "example" {
   cluster_name  = aws_eks_cluster.example.name
   node_group_name = "Node-cloud"
   node_role_arn  = aws_iam_role.node_group.arn
-  subnet_ids    = data.aws_subnets.public.ids
+  subnet_ids    = data.aws_subnet_ids.public.ids
 
   scaling_config {
-    desired_size = 1
-    max_size     = 2
-    min_size     = 1
-  }
-
-  instance_types = ["t2.medium"]
-
-  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
-  depends_on = [
-    aws_iam_role_policy_attachment.worker_node_policy,
-    aws_iam_role_policy_attachment.eks_cni_policy,
-    aws_iam_role_policy_attachment.ec2_container_registry_readonly,
-  ]
-}
